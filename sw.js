@@ -1,5 +1,5 @@
 /* Кодекс: сервис-воркер. Страница всегда пытается взять свежую версию из сети, а без сети открывается из кэша. */
-const VERSION = 'codex-v22-202610040904';
+const VERSION = 'codex-v24-202610041057';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
