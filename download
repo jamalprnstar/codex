@@ -1,0 +1,34 @@
+/* Кодекс: сервис-воркер. Страница всегда пытается взять свежую версию из сети, а без сети открывается из кэша. */
+const VERSION = 'codex-v21-202610040744';
+const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png'];
+
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith('codex-') && k !== VERSION).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+});
+const timeout = (ms) => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms));
+self.addEventListener('fetch', (e) => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== location.origin) return;
+  if (req.mode === 'navigate') {
+    e.respondWith((async () => {
+      const cache = await caches.open(VERSION);
+      try {
+        const res = await Promise.race([fetch(req, { cache: 'no-cache' }), timeout(3500)]);
+        if (res && res.ok) { cache.put('./index.html', res.clone()); return res; }
+      } catch { /* нет сети — берём из кэша */ }
+      return (await cache.match('./index.html')) || (await cache.match('./')) || Response.error();
+    })());
+    return;
+  }
+  e.respondWith((async () => {
+    const cache = await caches.open(VERSION);
+    const hit = await cache.match(req, { ignoreSearch: true });
+    if (hit) return hit;
+    try { const res = await fetch(req); if (res.ok) cache.put(req, res.clone()); return res; } catch { return Response.error(); }
+  })());
+});
